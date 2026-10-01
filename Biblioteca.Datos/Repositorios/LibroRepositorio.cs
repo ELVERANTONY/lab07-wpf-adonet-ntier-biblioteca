@@ -1,5 +1,3 @@
-namespace Biblioteca.Datos.Repositorios;
-
 using System.Data;
 using Microsoft.Data.SqlClient;
 using Biblioteca.Entidades.Modelos;
@@ -39,6 +37,25 @@ public class LibroRepositorio : ILibroRepositorio
         await using var r = await cmd.ExecuteReaderAsync();
         while (await r.ReadAsync())
             lista.Add(new Autor { AutorId = r.GetInt32(0), Nombre = r.GetString(1) });
+        return lista;
+    }
+
+    public async Task<List<Libro>> ListarDisponiblesAsync(string? filtro = null)
+    {
+        var lista = new List<Libro>();
+        await using var c = new SqlConnection(_cs);
+        var query = @"SELECT L.LibroId, L.Titulo, L.ISBN, L.AutorId, L.Ejemplares, L.Activo, A.Nombre AS NombreAutor
+                      FROM Libros L INNER JOIN Autores A ON L.AutorId = A.AutorId
+                      WHERE L.Activo = 1 AND L.Ejemplares > 0";
+        if (!string.IsNullOrWhiteSpace(filtro))
+            query += " AND (L.Titulo LIKE @filtro OR A.Nombre LIKE @filtro)";
+        await using var cmd = new SqlCommand(query, c);
+        if (!string.IsNullOrWhiteSpace(filtro))
+            cmd.Parameters.AddWithValue("@filtro", $"%{filtro.Trim()}%");
+        await c.OpenAsync();
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+            lista.Add(new Libro { LibroId = r.GetInt32(0), Titulo = r.GetString(1), ISBN = r.GetString(2), AutorId = r.GetInt32(3), Ejemplares = r.GetInt32(4), Activo = r.GetBoolean(5), NombreAutor = r.GetString(6) });
         return lista;
     }
 
