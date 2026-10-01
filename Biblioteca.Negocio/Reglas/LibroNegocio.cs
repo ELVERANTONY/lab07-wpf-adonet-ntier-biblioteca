@@ -8,12 +8,14 @@ public class LibroNegocio
 {
     private readonly ILibroRepositorio _repositorio;
     private readonly IPrestamoRepositorio _prestamoRepo;
+    private readonly IAutorRepositorio _autorRepo;
 
     // Se inyecta la dependencia instanciando la capa de datos (o se puede recibir por inyección directa)
     public LibroNegocio(string cs)
     {
         _repositorio = new LibroRepositorio(cs);
         _prestamoRepo = new PrestamoRepositorio(cs);
+        _autorRepo = new AutorRepositorio(cs);
     }
 
     public async Task<List<Libro>> ListarAsync(string? filtro = null)
@@ -23,7 +25,12 @@ public class LibroNegocio
 
     public async Task<List<Autor>> ListarAutoresAsync()
     {
-        return await _repositorio.ListarAutoresAsync();
+        return await _autorRepo.ListarActivosAsync();
+    }
+
+    public async Task<List<Libro>> ListarDisponiblesAsync(string? filtro = null)
+    {
+        return await _repositorio.ListarDisponiblesAsync(filtro);
     }
 
     public async Task RegistrarAsync(Libro libro)
@@ -49,6 +56,12 @@ public class LibroNegocio
             throw new ReglaNegocioException("ID de libro inválido.");
         if (string.IsNullOrWhiteSpace(libro.Titulo))
             throw new ReglaNegocioException("El título del libro no puede estar vacío.");
+        if (string.IsNullOrWhiteSpace(libro.ISBN))
+            throw new ReglaNegocioException("El ISBN no puede estar vacío.");
+        if (libro.AutorId <= 0)
+            throw new ReglaNegocioException("Debe seleccionar un autor válido.");
+        if (libro.Ejemplares < 0)
+            throw new ReglaNegocioException("La cantidad de ejemplares no puede ser negativa.");
         
         if (await _repositorio.ExisteISBNAsync(libro.ISBN, libro.LibroId))
             throw new ReglaNegocioException($"El ISBN {libro.ISBN} ya pertenece a otro libro activo.");

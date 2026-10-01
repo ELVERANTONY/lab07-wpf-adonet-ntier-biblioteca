@@ -1,4 +1,4 @@
--- Script pendiente
+-- BibliotecaDB: tablas, relaciones y datos de prueba para Semana 07.
 USE master;
 GO
 IF DB_ID('BibliotecaDB') IS NOT NULL

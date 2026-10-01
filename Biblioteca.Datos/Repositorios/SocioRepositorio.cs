@@ -40,6 +40,25 @@ public class SocioRepositorio : ISocioRepositorio
         return lista;
     }
 
+    public async Task<Socio?> ObtenerPorIdAsync(int id)
+    {
+        await using var c = new SqlConnection(_cs);
+        await using var cmd = new SqlCommand("SELECT SocioId, DNI, Nombre, Email, Activo FROM Socios WHERE SocioId = @id", c);
+        cmd.Parameters.AddWithValue("@id", id);
+        await c.OpenAsync();
+        await using var r = await cmd.ExecuteReaderAsync();
+        if (!await r.ReadAsync()) return null;
+
+        return new Socio
+        {
+            SocioId = r.GetInt32(r.GetOrdinal("SocioId")),
+            DNI = r.GetString(r.GetOrdinal("DNI")),
+            Nombre = r.GetString(r.GetOrdinal("Nombre")),
+            Email = r.GetString(r.GetOrdinal("Email")),
+            Activo = r.GetBoolean(r.GetOrdinal("Activo"))
+        };
+    }
+
     public async Task<int> CrearAsync(Socio socio)
     {
         await using var c = new SqlConnection(_cs);
@@ -51,7 +70,7 @@ public class SocioRepositorio : ISocioRepositorio
         cmd.Parameters.AddWithValue("@Nombre", socio.Nombre.Trim());
         cmd.Parameters.AddWithValue("@Email", socio.Email.Trim());
         await c.OpenAsync();
-        return (int)await cmd.ExecuteScalarAsync();
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync());
     }
 
     public async Task ActualizarAsync(Socio socio)
@@ -88,6 +107,6 @@ public class SocioRepositorio : ISocioRepositorio
         if (excludeSocioId.HasValue) cmd.Parameters.AddWithValue("@id", excludeSocioId.Value);
         
         await c.OpenAsync();
-        return (int)await cmd.ExecuteScalarAsync() > 0;
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
     }
 }

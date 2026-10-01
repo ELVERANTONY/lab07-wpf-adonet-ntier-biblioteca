@@ -12,4 +12,5 @@ public class Prestamo
     public List<DetallePrestamo> Detalles { get; set; } = new();
     public string NombreSocio { get; set; } = string.Empty;
     public string DniSocio { get; set; } = string.Empty;
+    public string Libros { get; set; } = string.Empty;
 }

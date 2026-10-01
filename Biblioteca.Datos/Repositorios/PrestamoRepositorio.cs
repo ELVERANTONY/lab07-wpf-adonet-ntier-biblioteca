@@ -24,7 +24,7 @@ public class PrestamoRepositorio : IPrestamoRepositorio
         await using var cmd = new SqlCommand(query, c);
         cmd.Parameters.AddWithValue("@SocioId", socioId);
         await c.OpenAsync();
-        return (int)await cmd.ExecuteScalarAsync();
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync());
     }
 
     public async Task<bool> SocioTienePrestamosPendientesAsync(int socioId)
@@ -39,7 +39,7 @@ public class PrestamoRepositorio : IPrestamoRepositorio
         await using var cmd = new SqlCommand(query, c);
         cmd.Parameters.AddWithValue("@LibroId", libroId);
         await c.OpenAsync();
-        return (int)await cmd.ExecuteScalarAsync() > 0;
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
     }
 
     public async Task RegistrarPrestamoAsync(Prestamo prestamo)
@@ -62,7 +62,7 @@ public class PrestamoRepositorio : IPrestamoRepositorio
             cmdCab.Parameters.AddWithValue("@FechaPrestamo", prestamo.FechaPrestamo);
             cmdCab.Parameters.AddWithValue("@FechaLimite", prestamo.FechaLimite);
             
-            int prestamoId = (int)await cmdCab.ExecuteScalarAsync();
+            int prestamoId = Convert.ToInt32(await cmdCab.ExecuteScalarAsync());
 
             // 2. Insertar Detalles y descontar stock
             foreach (var det in prestamo.Detalles)
@@ -73,10 +73,11 @@ public class PrestamoRepositorio : IPrestamoRepositorio
                 cmdDet.Parameters.AddWithValue("@LId", det.LibroId);
                 await cmdDet.ExecuteNonQueryAsync();
 
-                var qStock = "UPDATE Libros SET Ejemplares = Ejemplares - 1 WHERE LibroId = @LId";
+                var qStock = "UPDATE Libros SET Ejemplares = Ejemplares - 1 WHERE LibroId = @LId AND Activo = 1 AND Ejemplares > 0";
                 await using var cmdStock = new SqlCommand(qStock, c, t);
                 cmdStock.Parameters.AddWithValue("@LId", det.LibroId);
-                await cmdStock.ExecuteNonQueryAsync();
+                if (await cmdStock.ExecuteNonQueryAsync() != 1)
+                    throw new InvalidOperationException("El libro ya no tiene ejemplares disponibles.");
             }
 
             // Confirmar transacción si todo salio bien
@@ -104,7 +105,8 @@ public class PrestamoRepositorio : IPrestamoRepositorio
             cmdDev.Parameters.AddWithValue("@Fecha", fechaDevolucion);
             cmdDev.Parameters.AddWithValue("@PId", prestamoId);
             cmdDev.Parameters.AddWithValue("@LId", libroId);
-            await cmdDev.ExecuteNonQueryAsync();
+            if (await cmdDev.ExecuteNonQueryAsync() != 1)
+                throw new InvalidOperationException("El préstamo seleccionado ya fue devuelto o no existe.");
 
             // 2. Devolver stock al libro
             var qStock = "UPDATE Libros SET Ejemplares = Ejemplares + 1 WHERE LibroId = @LId";
@@ -116,7 +118,7 @@ public class PrestamoRepositorio : IPrestamoRepositorio
             var qPend = "SELECT COUNT(1) FROM DetallePrestamo WHERE PrestamoId = @PId AND FechaDevolucion IS NULL";
             await using var cmdPend = new SqlCommand(qPend, c, t);
             cmdPend.Parameters.AddWithValue("@PId", prestamoId);
-            int pendientes = (int)await cmdPend.ExecuteScalarAsync();
+            int pendientes = Convert.ToInt32(await cmdPend.ExecuteScalarAsync());
 
             if (pendientes == 0)
             {
@@ -189,6 +191,8 @@ public class PrestamoRepositorio : IPrestamoRepositorio
                 FechaDevolucion = r.GetDateOrNull("FechaDevolucion")
             });
         }
+        foreach (var prestamo in lista)
+            prestamo.Libros = string.Join(", ", prestamo.Detalles.Select(d => d.NombreLibro));
         return lista;
     }
 
@@ -198,7 +202,7 @@ public class PrestamoRepositorio : IPrestamoRepositorio
         await using var c = new SqlConnection(_cs);
         
         var query = @"
-            SELECT DP.PrestamoId, DP.LibroId, L.Titulo AS NombreLibro
+            SELECT DP.PrestamoId, DP.LibroId, L.Titulo AS NombreLibro, P.FechaLimite
             FROM DetallePrestamo DP
             INNER JOIN Prestamos P ON DP.PrestamoId = P.PrestamoId
             INNER JOIN Libros L ON DP.LibroId = L.LibroId
@@ -216,6 +220,7 @@ public class PrestamoRepositorio : IPrestamoRepositorio
                 PrestamoId = r.GetInt32(r.GetOrdinal("PrestamoId")),
                 LibroId = r.GetInt32(r.GetOrdinal("LibroId")),
                 NombreLibro = r.GetString(r.GetOrdinal("NombreLibro")),
+                FechaLimite = r.GetDateTime(r.GetOrdinal("FechaLimite")),
                 FechaDevolucion = null
             });
         }

@@ -8,20 +8,29 @@ public class PrestamoNegocio
 {
     private readonly IPrestamoRepositorio _prestamoRepo;
     private readonly ILibroRepositorio _libroRepo;
+    private readonly ISocioRepositorio _socioRepo;
 
     public PrestamoNegocio(string cs)
     {
         _prestamoRepo = new PrestamoRepositorio(cs);
         _libroRepo = new LibroRepositorio(cs);
+        _socioRepo = new SocioRepositorio(cs);
     }
 
     public async Task RegistrarPrestamoAsync(Prestamo prestamo)
     {
         if (prestamo.SocioId <= 0)
             throw new ReglaNegocioException("Debe seleccionar un socio válido.");
+
+        var socio = await _socioRepo.ObtenerPorIdAsync(prestamo.SocioId);
+        if (socio == null || !socio.Activo)
+            throw new ReglaNegocioException("El socio seleccionado no existe o está dado de baja.");
         
         if (prestamo.Detalles == null || !prestamo.Detalles.Any())
             throw new ReglaNegocioException("Debe agregar al menos un libro al préstamo.");
+
+        if (prestamo.Detalles.GroupBy(d => d.LibroId).Any(g => g.Count() > 1))
+            throw new ReglaNegocioException("No se puede registrar el mismo libro más de una vez en un préstamo.");
 
         if (prestamo.FechaLimite <= prestamo.FechaPrestamo)
             throw new ReglaNegocioException("La fecha límite debe ser mayor a la fecha de préstamo.");

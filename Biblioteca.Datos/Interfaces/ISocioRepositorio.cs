@@ -5,6 +5,7 @@ namespace Biblioteca.Datos.Interfaces;
 public interface ISocioRepositorio
 {
     Task<List<Socio>> ListarAsync(string? filtro = null);
+    Task<Socio?> ObtenerPorIdAsync(int id);
     Task<int> CrearAsync(Socio socio);
     Task ActualizarAsync(Socio socio);
     Task EliminarAsync(int id);
