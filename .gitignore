@@ -1,0 +1,23 @@
+## .gitignore para proyecto .NET / WPF
+
+# Carpetas de compilación (se generan automáticamente)
+bin/
+obj/
+
+# Carpeta de referencia del profesor (solo es para guiarnos)
+Reference/
+
+# Archivos de usuario de Visual Studio
+*.user
+*.suo
+.vs/
+
+# Archivos de paquetes NuGet
+*.nupkg
+.nuget/
+packages/
+
+# Archivos de configuración local que no deben subirse
+*.userprefs
+*.DS_Store
+Thumbs.db
